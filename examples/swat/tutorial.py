@@ -54,7 +54,7 @@ def nxgraph_sub1(attacker=False):
     nodes = {}
     count = 0
     # plcs
-    for i in range(1, 4):
+    for i in range(1, 7):
         key = 'plc'+str(i)
         nodes[key] = PLC(key, L1_PLCS_IP[key], L1_NETMASK, PLCS_MAC[key])
         graph.add_node(key, attr_dict=nodes[key].get_params())
@@ -94,7 +94,7 @@ def minicps_tutorial(net):
 
 
     # Get references to nodes (each node is a Linux container)
-    plc1, plc2, plc3, hmi, s1 = net.get('plc1', 'plc2', 'plc3', 'hmi', 's1')
+    plc1, plc2, plc3, plc4, plc5, plc6, hmi, s1 = net.get('plc1', 'plc2', 'plc3','plc4', 'plc5', 'plc6', 'hmi', 's1')
 
     ## SET PLC1
     # plc1a_pid = plc1.cmd("python examples/swat/plc1a.py 2> examples/swat/err/plc1a.err &")
@@ -103,6 +103,9 @@ def minicps_tutorial(net):
 
     plc2_pid = plc2.cmd("python examples/swat/plc2.py 2> examples/swat/err/plc2.err &")
     plc3_pid = plc3.cmd("python examples/swat/plc3.py 2> examples/swat/err/plc3.err &")
+    plc4_pid = plc4.cmd("python examples/swat/plc4.py 2> examples/swat/err/plc4.err &")
+  #  plc5_pid = plc5.cmd("python examples/swat/plc5.py 2> examples/swat/err/plc5.err &")
+  #  plc6_pid = plc6.cmd("python examples/swat/plc6.py 2> examples/swat/err/plc6.err &")
     hmi_pid = hmi.cmd("python examples/swat/hmi.py 2> examples/swat/err/hmi.err &")
 
     # Start the physical process

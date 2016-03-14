@@ -22,7 +22,7 @@ from signal import SIGTERM
 from multiprocessing import Process
 
 from constants import logger
-from constants import P1_PLC1_TAGS, LIT_101, LIT_301, FIT_201
+from constants import P1_PLC4_TAGS, LIT_101, LIT_301, FIT_201
 from constants import T_HMI_R, TIMEOUT, DISPLAYED_SAMPLES
 from constants import read_cpppo
 from constants import L1_PLCS_IP
@@ -213,8 +213,8 @@ if __name__ == '__main__':
     image is served through a webserver that can be reached at
     HMI_IP:80
     """
-    hmi = HMI(['HMI_MV101-Status', 'HMI_LIT101-Pv', 'HMI_P101-Status'],
-            L1_PLCS_IP['plc1'], 'plc1.png', T_HMI_R, TIMEOUT)
+    hmi = HMI(['HMI_P301-Status', 'HMI_LIT401-Pv', 'HMI_P401-Status'],
+            L1_PLCS_IP['plc4'], 'plc1.png', T_HMI_R, TIMEOUT)
     sleep(3)
 
     hmi.start()

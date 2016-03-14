@@ -233,11 +233,35 @@ if __name__ == '__main__':
                 [('AI_FIT_201_FLOW', '2')],
                 [('DO_MV_201_OPEN', '2')],
                 ('AI_LIT_301_LEVEL', '3'),
-                None,  # No pump
+                [('DO_P_301_START', '3')], 
                 None,  # No output flowmeter
                 1, 3,
                 TANK_DIAMETER, TANK_HEIGHT,
                 T_PP_R, TIMEOUT)
 
+
+    ro_tank = Tank(
+                 [('AI_FIT_301_FLOW', '3')],
+                 [('DO_P_301_START', '3')],
+                 ('AI_LIT_401_LEVEL', '4'),
+                 [('DO_P_401_START', '4')],
+                 [('AI_FIT_401_FLOW', '4')],
+                 1,4,
+                 TANK_DIAMETER, TANK_HEIGHT,
+                 T_PP_R, TIMEOUT)
+   
+    ufbw_tank = Tank(
+                 [('AI_FIT_501_FLOW', '5')],
+                 [('DO_MV_501_OPEN', '5')],
+                 ('AI_LIT_601_LEVEL','6'),
+                 [('DO_P_601_START', '6')],
+                 [('AI_FIT_601_FLOW','6')], 
+                 1,6,
+                 TANK_DIAMETER, TANK_HEIGHT,
+                 T_PP_R, TIMEOUT)
+
+
     rw_tank.start()
     uf_tank.start()
+    ro_tank.start()
+    #ufbw_tank.start()

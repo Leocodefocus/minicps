@@ -62,14 +62,25 @@ if __name__ == '__main__':
     ## END SET LIT101DB
 
     update_statedb('710', 'AI_LIT_301_LEVEL')
+    update_statedb('700', 'AI_LIT_401_LEVEL')
+    update_statedb('650', 'AI_LIT_601_LEVEL')
 
     update_statedb('1', 'DO_P_101_START')
-
+    update_statedb('1', 'DO_P_301_START')
+    update_statedb('1', 'DO_P_401_START')
+    update_statedb('1', 'DO_MV_501_OPEN')
+    update_statedb('0', 'DO_MV_501_CLOSE')
+    update_statedb('1', 'DO_P_601_START')
+    
     update_statedb('1', 'DO_MV_101_OPEN')
     update_statedb('0', 'DO_MV_101_CLOSE')
 
     update_statedb('2.55', 'AI_FIT_101_FLOW')
     update_statedb('2.45', 'AI_FIT_201_FLOW')
+    update_statedb('2.55', 'AI_FIT_301_FLOW')
+    update_statedb('2.45', 'AI_FIT_401_FLOW')
+    update_statedb('2.55', 'AI_FIT_501_FLOW')
+    update_statedb('2.45', 'AI_FIT_601_FLOW')
 
     update_statedb('1', 'DO_MV_201_OPEN')
     update_statedb('0', 'DO_MV_201_CLOSE')

@@ -140,10 +140,12 @@ P1_PLC1_TAGS = [
     # ('DO_MV_101_OPEN', 'INT'),
     # ('AI_LIT_101_LEVEL', 'INT'),
     ('DO_P_101_START', 'INT'),
+    ('DO_P_401_START','INT'),
     ('HMI_FIT201-Pv', 'REAL'),
     ('HMI_MV201-Status', 'INT'),
     ('HMI_MV101-Status', 'INT'),
     ('HMI_P101-Status', 'INT'),
+    ('HMI_P401-Status','INT'),
     ('HMI_LIT301-Pv', 'REAL'),
     ('HMI_LIT101-Pv', 'REAL'),
 ]
@@ -159,6 +161,35 @@ P1_PLC2_TAGS = [
 P1_PLC3_TAGS = [
     ('AI_LIT_301_LEVEL', 'INT'),
     ('HMI_LIT301-Pv', 'REAL'),
+    ('DO_P_301_START', 'INT'),
+    ('DO_P301-Status', 'INT'),
+]
+
+P1_PLC4_TAGS = [
+    ('DO_P_301_START','INT'),
+    ('DO_P_401_START','INT'),
+    ('HMI_P301-Status','INT'),
+    ('HMI_P401-Status','INT'),
+    ('AI_LIT401_LEVEL','INT'),
+    ('HMI_LIT401-Pv','REAL'),
+    ('HMI_FIT401-Pv','REAL'),
+]
+
+P1_PLC5_TAGS = [
+    ('DO_MV_501_OPEN', 'INT'),
+    ('DO_MV_501_CLOSE', 'INT'),
+    ('HMI_MV501-Status', 'INT'),
+    ('HMI_FIT501-Pv', 'REAL'),
+]
+
+P1_PLC6_TAGS = [
+    ('DO_MV_501_OPEN', 'INT'),
+    ('DO_MV_501_CLOSE', 'INT'),
+    ('HMI_MV501-Status', 'INT'),
+    ('AI_LIT_601_LEVEL', 'INT'),
+    ('HMI_LIT601-Pv' , 'INT'),
+    ('DO_P_601_START' , 'INT'),
+    ('HMI_P601-Status' , 'INT'),
 ]
 
 def db2cpppo(record):
@@ -209,7 +240,7 @@ def init_cpppo_server(tags):
     # cpppo_tags += ' P3=DINT'
     # cpppo_tags += ' P4=REAL'
 
-    # logger.debug('cpppo_tags: %s' % cpppo_tags)
+    logger.debug('cpppo_tags: %s' % cpppo_tags)
 
     cmd = 'python -m cpppo.server.enip --print -v %s &' % cpppo_tags
     rc = os.system(cmd)
@@ -269,7 +300,7 @@ def read_cpppo(ip, tag_name, cpppo_cache):
 ## SET PROCESS
 GRAVITATION = 9.81 # m.s^-2
 TANK_DIAMETER = 1.38 # m
-TIMEOUT = 10000 # s
+TIMEOUT = 1000 # s
 PUMP_FLOWRATE_IN = 2.55 # m^3/h spec say btw 2.2 and 2.4
 PUMP_FLOWRATE_OUT = 2.45 # m^3/h spec say btw 2.2 and 2.4
 
@@ -300,10 +331,25 @@ LIT_301 = {  # ultrafiltration tank mm
     'HH': 1200.0,
 }
 
+LIT_401 = { # RO Feed tank mm
+     'LL' : 250.0,
+     'L' : 800.0,
+     'H' : 1000.0,
+     'HH' : 1200.0,    
+}
+
+LIT_601 = { #UF Backwash tank mm
+     'LL': 250.0,
+     'L' : 800.0,
+     'H' : 1000.0,
+     'HH': 1200.0,
+}
+
 TANK_HEIGHT = 1.600  # m
 
 # m^3 / h
 FIT_201 = 0.0
+FIT_401 = 0.0
 ## END SET PROCESS
 
 
@@ -806,8 +852,4 @@ CIP_SERIAL_NUMBERS = {
     'plc4r': 'TODO',
     'plc5r': 'TODO',
     'plc6r': 'TODO',
-    # used as central hub
-    'plc7':  'TODO',
-    'attacker': 'TODO',
 }
-
