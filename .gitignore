@@ -1,3 +1,7 @@
+# SQLite temp files
+*journal
+*wal
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -69,6 +73,8 @@ target/
 *.json
 *.cache
 *.gexf
+*.swo
+*.swp
 
 # Caps
 *.pcapng
@@ -78,3 +84,13 @@ target/
 
 # Etterfilter compiled filters
 *.ef
+
+# MiniCPS
+
+/logs
+examples/toy/logs
+examples/swat/logs
+examples/swat-s1/logs
+
+# State
+*.sqlite

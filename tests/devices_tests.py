@@ -1,224 +1,475 @@
 """
-Devices tests
-
-time.sleep is used after net.start() to synch python interpreter with
-the mininet init process.
-
-POX prefixed ClassNames indicate controller coded into script/pox dir
-and symlinked to ~/pox/pox/forwarding dir.
+devices tests
 """
 
-from nose.plugins.skip import Skip, SkipTest
-
-from mininet.topo import LinearTopo
-from mininet.net import Mininet
-from mininet.util import dumpNodeConnections
-from mininet.log import setLogLevel
-from mininet.node import CPULimitedHost, RemoteController
-from mininet.link import TCLink
-from mininet.cli import CLI
-
-from minicps import constants as c
-from minicps.devices import *
-from minicps.constants import _arp_cache_rtts, setup_func, teardown_func, teardown_func_clear, with_named_setup
-
 import time
+import sys
+import os
 
-import logging
-logger = logging.getLogger('minicps.devices')
-setLogLevel(c.TEST_LOG_LEVEL)
+from minicps.devices import Device, PLC, HMI, Tank
+from minicps.state import SQLiteState
+
+from nose.tools import eq_
+from nose.plugins.skip import SkipTest
 
 
-@with_named_setup(setup_func, teardown_func)
-def test_ControlDevice():
+class TestDevice():
+
+    """TestDevice: build and input validation tests."""
+
+    NAME = 'devices_tests'
+    STATE = {
+        'path': 'temp/devices_tests.sqlite',
+        'name': 'devices_tests'
+    }
+    PROTOCOL = {
+        'name': 'enip',
+        'mode': 0,
+        'server': '',
+    }
+
+    MEMORY = {
+        'TAG1': '1',
+        'TAG2': '2',
+    }
+
+    DISK = {
+        'TAG1': '1',
+        'TAG2': '2',
+        'TAG4': '4',
+        'TAG5': '5',
+    }
+
+    def test_validate_device_name(self):
+
+        try:
+            device = Device(
+                name=1,
+                state=TestDevice.STATE,
+                protocol=TestDevice.PROTOCOL)
+        except TypeError as error:
+            print 'name is an int: ', error
+
+        try:
+            device = Device(
+                name='',
+                state=TestDevice.STATE,
+                protocol=TestDevice.PROTOCOL)
+        except ValueError as error:
+            print 'name is empty string: ', error
+
+    def test_validate_state(self):
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state='state',
+                protocol=TestDevice.PROTOCOL)
+        except TypeError as error:
+            print 'state is string: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state={},
+                protocol=TestDevice.PROTOCOL)
+        except KeyError as error:
+            print 'state is an empty dict: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state={
+                    'name': 'table_name', 'path': '/path.db',
+                    'wrong': 'key-val'},
+                protocol=TestDevice.PROTOCOL)
+        except KeyError as error:
+            print 'state has more than 2 keys: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state={'name': 'table_name'},
+                protocol=TestDevice.PROTOCOL)
+        except KeyError as error:
+            print 'state has less than 2 keys: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state={
+                    'path': '/bla',
+                    'bla': 'table_name'},
+                protocol=TestDevice.PROTOCOL)
+        except KeyError as error:
+            print 'state has a wrong key: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state={
+                    'path': 0,
+                    'name': 0},
+                protocol=TestDevice.PROTOCOL)
+        except TypeError as error:
+            print 'state has integer values: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state={
+                    'path': '/not/supported.ext',
+                    'name': 'table_name'},
+                protocol=TestDevice.PROTOCOL)
+        except ValueError as error:
+            print 'state has an unsupported path extension: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state={
+                    'path': '/not/supported.ext',
+                    'name': 4},
+                protocol=TestDevice.PROTOCOL)
+        except TypeError as error:
+            print 'state has an integer name: ', error
+
+    def test_validate_protocol(self):
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state=TestDevice.STATE,
+                protocol='protocol')
+        except TypeError as error:
+            print 'protocol is string: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state=TestDevice.STATE,
+                protocol={})
+        except KeyError as error:
+            print 'protocol is an empty dict: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state=TestDevice.STATE,
+                protocol={
+                    'name': 'enip', 'mode': 0, 'server': '',
+                    'too': 'much'})
+        except KeyError as error:
+            print 'protocol has more than 3 keys: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state=TestDevice.STATE,
+                protocol={'name': 'enip', 'mode': 0})
+        except KeyError as error:
+            print 'protocol has less than 3 keys: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state=TestDevice.STATE,
+                protocol={
+                    'name': 'enip', 'mode': 0, 'bla': ''})
+        except KeyError as error:
+            print 'protocol has a wrong key: ', error
+
+        # protocol['name']
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state=TestDevice.STATE,
+                protocol={
+                    'name': 1, 'mode': 0, 'server': ''})
+        except TypeError as error:
+            print 'protocol name is not a string: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state=TestDevice.STATE,
+                protocol={
+                    'name': 'wow', 'mode': 0, 'server': ''})
+        except ValueError as error:
+            print 'protocol has an unsupported name: ', error
+
+        # protocol['mode']
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state=TestDevice.STATE,
+                protocol={
+                    'name': 'enip', 'mode': 0.3, 'server': ''})
+        except TypeError as error:
+            print 'protocol mode is a float: ', error
+
+        try:
+            device = Device(
+                name=TestDevice.NAME,
+                state=TestDevice.STATE,
+                protocol={
+                    'name': 'enip', 'mode': -3, 'server': ''})
+        except ValueError as error:
+            print 'protocol mode is a negative int: ', error
+
+        # protocol['server'] TODO
+        # protocol['client'] TODO
+
+    def test_validate_disk(self):
+
+        pass
+
+    def test_validate_memory(self):
+
+        pass
+
+
+class TestTank():
+
+    """TestTank: device with state capability."""
+
+    NAME = 'tank_tests'
+    PATH = 'temp/tank_tests.sqlite'
+    STATE = {
+        'path': PATH,
+        'name': NAME
+    }
+    PROTOCOL = None
+
+    SCHEMA = """
+    CREATE TABLE tank_tests (
+        name              TEXT NOT NULL,
+        datatype          TEXT NOT NULL,
+        value             TEXT,
+        PRIMARY KEY (name)
+    );
     """
-    Test concurrency
+
+    SCHEMA_INIT = """
+        INSERT INTO tank_tests VALUES ('SENSOR1',   'int', '1');
+        INSERT INTO tank_tests VALUES ('SENSOR2',   'float', '22.2');
+        INSERT INTO tank_tests VALUES ('SENSOR3',   'int', '5');
+        INSERT INTO tank_tests VALUES ('ACTUATOR2', 'int', '2');
     """
-    # raise SkipTest
 
-    fs1 = FlowSensor.start('temp/phy-layer/fs1', flow_level=1).proxy()
-    fs2 = FlowSensor.start('temp/phy-layer/fs2', flow_level=2).proxy()
-    mv = MotorizedValve.start('temp/phy-layer/mv2', True).proxy()
-    plc1_logic = PLCLogic1.start('temp/phy-layer/plc1_logic').proxy()
-    sub1 = SWATSub1.start('temp/phy-layer/sub1').proxy()
+    SECTION = 1.5  # m^2
+    FIT = 2.55  # m^3/h
+    INFLOWS = [
+        [False, FIT, 0.5],
+    ]
+    OUTFLOWS = [
+        [False, FIT, 0.5],
+        [False, FIT, 0.3],
+    ]
+    THRESHOLDS = {
+        'LL': 250.0,
+        'L': 500.0,
+        'H': 800.0,
+        'HH': 1200.0,
+    }
+    LEVEL = 500.0
 
-    try:
-        future = fs1.append('wow')
-        answer = future.get()
-        print answer
+    def test_init(self):
 
-    finally:
-        fs1.stop()
-        fs2.stop()
-        mv.stop()
-        plc1_logic.stop()
-        sub1.stop()
+        try:
+            os.remove(TestTank.PATH)
+        except OSError:
+            pass
+
+        SQLiteState._create(TestTank.PATH, TestTank.SCHEMA)
+        SQLiteState._init(TestTank.PATH, TestTank.SCHEMA_INIT)
+
+        tank = Tank(
+            name=TestTank.NAME,
+            state=TestTank.STATE,
+            protocol=TestTank.PROTOCOL,
+
+            section=TestTank.SECTION,
+            level=TestTank.LEVEL
+        )
+
+        SQLiteState._delete(TestTank.PATH)
+
+    @SkipTest
+    def test_set_get(self, sleep=0.3):
+
+        try:
+            os.remove(TestTank.PATH)
+        except OSError:
+            pass
+
+        SQLiteState._create(TestTank.PATH, TestTank.SCHEMA)
+        SQLiteState._init(TestTank.PATH, TestTank.SCHEMA_INIT)
+
+        class ToyTank(Tank):
+
+            def pre_loop(self):
+
+                eq_(self.set(('SENSOR1',), '10'), '10')
+                eq_(self.get(('SENSOR1',)), '10')
+                eq_(self.get(('SENSOR2',)), '22.2')
+                eq_(self.get(('SENSOR3',)), '5')
+                time.sleep(sleep)
+
+                try:
+                    self.get(2.22)
+                except TypeError as error:
+                    print 'get what is a float: ', error
+
+                try:
+                    self.set(2, 5)
+                except TypeError as error:
+                    print 'set what is an integer: ', error
+
+        # TODO: add atts
+        tank = ToyTank(
+            name=TestTank.NAME,
+            state=TestTank.STATE,
+            protocol=TestTank.PROTOCOL)
+
+        SQLiteState._delete(TestTank.PATH)
 
 
-@with_named_setup(setup_func, teardown_func)
-def test_POXL2Pairs():
-    """Test build-in forwarding.l2_pairs controller
-    that adds flow entries using only MAC info.
+class TestPLC():
+
+    """TestPLC: device with state and protocol client/server capabilites."""
+
+    NAME = 'plc_tests'
+    PATH = 'temp/plc_tests.sqlite'
+    STATE = {
+        'path': PATH,
+        'name': NAME
+    }
+    PROTOCOL = {
+        'name': 'enip',
+        'mode': 0,
+        'server': '',
+    }
+
+    SCHEMA = """
+    CREATE TABLE plc_tests (
+        name              TEXT NOT NULL,
+        datatype          TEXT NOT NULL,
+        value             TEXT,
+        PRIMARY KEY (name)
+    );
     """
-    raise SkipTest
 
-    topo = L3EthStar()
-    controller = POXL2Pairs
-    net = Mininet(topo=topo, controller=controller, link=TCLink, listenPort=c.OF_MISC['switch_debug_port'])
-    net.start()
-
-    CLI(net)
-
-    net.stop()
-
-
-@with_named_setup(setup_func, teardown_func_clear)
-def test_RemoteController():
-    """Test L3EthStar with a remote controller
-    eg: pox controller
+    SCHEMA_INIT = """
+        INSERT INTO plc_tests VALUES ('SENSOR1',   'int', '1');
+        INSERT INTO plc_tests VALUES ('SENSOR2',   'float', '22.2');
+        INSERT INTO plc_tests VALUES ('SENSOR3',   'int', '5');
+        INSERT INTO plc_tests VALUES ('ACTUATOR2', 'int', '2');
     """
-    raise SkipTest
 
-    topo = L3EthStarAttack()
-    net = Mininet( topo=topo, controller=None, link=TCLink, listenPort=c.OF_MISC['switch_debug_port'])
-    net.addController( 'c0',
-            controller=RemoteController,
-            ip='127.0.0.1',
-            port=c.OF_MISC['controller_port'] )
-    net.start()
+    def test_set_get(self, sleep=0.3):
 
-    CLI(net)
+        try:
+            os.remove(TestPLC.PATH)
+        except OSError:
+            pass
 
-    net.stop()
+        SQLiteState._create(TestPLC.PATH, TestPLC.SCHEMA)
+        SQLiteState._init(TestPLC.PATH, TestPLC.SCHEMA_INIT)
 
+        class ToyPLC(PLC):
 
-@with_named_setup(setup_func, teardown_func)
-def test_POXSwatController():
-    """See /logs folder for controller info"""
-    raise SkipTest
+            def pre_loop(self):
 
-    topo = L3EthStar()
-    net = Mininet(topo=topo, controller=POXSwatController, link=TCLink, listenPort=c.OF_MISC['switch_debug_port'])
-    net.start()
+                eq_(self.set(('SENSOR1',), '10'), '10')
+                eq_(self.get(('SENSOR1',)), '10')
+                eq_(self.get(('SENSOR2',)), '22.2')
+                eq_(self.get(('SENSOR3',)), '5')
+                time.sleep(sleep)
 
-    CLI(net)
+                try:
+                    self.get(2.22)
+                except TypeError as error:
+                    print 'get what is a float: ', error
 
-    net.stop()
+                try:
+                    self.set(2, 5)
+                except TypeError as error:
+                    print 'set what is an integer: ', error
 
+        plc = ToyPLC(
+            name=TestPLC.NAME,
+            state=TestPLC.STATE,
+            protocol=TestPLC.PROTOCOL)
 
-@with_named_setup(setup_func, teardown_func)
-def test_POXAntiArpPoison():
-    """TODO Test AntiArpPoison controller."""
-    raise SkipTest
-
-    topo = L3EthStar()
-    controller = POXAntiArpPoison
-    net = Mininet(topo=topo, controller=controller, link=TCLink, listenPort=c.OF_MISC['switch_debug_port'])
-    net.start()
-    time.sleep(1)  # allow mininet to init processes
-
-    plc1, plc2, plc3 = net.get('plc1', 'plc2', 'plc3')
-
-    target_ip1 = plc2.IP()
-    target_ip2 = plc3.IP()
-    attacker_interface = 'plc1-eth0'
-
-    # plc1_cmd = 'scripts/attacks/arp-mitm.sh %s %s %s' % ( target_ip1,
-    #         target_ip2, attacker_interface)
-    # plc1.cmd(plc1_cmd)
-
-    CLI(net)
-
-    net.stop()
+        SQLiteState._delete(TestPLC.PATH)
 
 
-@with_named_setup(setup_func, teardown_func)
-def test_POXL2PairsRtt():
-    """Test build-in forwarding.l2_pairs controller RTT
-    that adds flow entries using only MAC info.
+class TestHMI():
+
+    """TestHMI: device with state and protocol client capabilites."""
+
+    NAME = 'hmi_tests'
+    PATH = 'temp/hmi_tests.sqlite'
+    STATE = {
+        'path': PATH,
+        'name': NAME
+    }
+    PROTOCOL = {
+        'name': 'enip',
+        'mode': 0,
+        'server': '',
+    }
+
+    SCHEMA = """
+    CREATE TABLE hmi_tests (
+        name              TEXT NOT NULL,
+        datatype          TEXT NOT NULL,
+        value             TEXT,
+        PRIMARY KEY (name)
+    );
     """
-    raise SkipTest
 
-    topo = L3EthStar()
-    controller = POXL2Pairs
-    net = Mininet(topo=topo, controller=controller, link=TCLink, listenPort=c.OF_MISC['switch_debug_port'])
-    net.start()
-    time.sleep(1)  # allow mininet to init processes
-
-    deltas = []
-    for i in range(5):
-        first_rtt, second_rtt = _arp_cache_rtts(net, 'plc1', 'plc2')
-        assert_greater(first_rtt, second_rtt,
-                c.ASSERTION_ERRORS['no_learning'])
-        deltas.append(first_rtt - second_rtt)
-    logger.debug('deltas: %s' % deltas.__str__())
-
-    # CLI(net)
-
-    net.stop()
-
-
-@with_named_setup(setup_func, teardown_func)
-def test_POXL2LearningRtt():
-    """Test build-in forwarding.l2_learning controller RTT
-    that adds flow entries using only MAC info.
+    SCHEMA_INIT = """
+        INSERT INTO hmi_tests VALUES ('SENSOR1',   'int', '1');
+        INSERT INTO hmi_tests VALUES ('SENSOR2',   'float', '22.2');
+        INSERT INTO hmi_tests VALUES ('SENSOR3',   'int', '5');
+        INSERT INTO hmi_tests VALUES ('ACTUATOR2', 'int', '2');
     """
-    raise SkipTest
 
-    topo = L3EthStar()
-    controller = POXL2Learning
-    net = Mininet(topo=topo, controller=controller, link=TCLink, listenPort=c.OF_MISC['switch_debug_port'])
-    net.start()
-    time.sleep(1)  # allow mininet to init processes
+    def test_set_get(self, sleep=0.3):
 
-    deltas = []
-    for i in range(5):
-        first_rtt, second_rtt = _arp_cache_rtts(net, 'plc1', 'plc2')
-        assert_greater(first_rtt, second_rtt,
-                c.ASSERTION_ERRORS['no_learning'])
-        deltas.append(first_rtt - second_rtt)
-    logger.debug('deltas: %s' % deltas.__str__())
+        try:
+            os.remove(TestHMI.PATH)
+        except OSError:
+            pass
 
-    # CLI(net)
+        SQLiteState._create(TestHMI.PATH, TestHMI.SCHEMA)
+        SQLiteState._init(TestHMI.PATH, TestHMI.SCHEMA_INIT)
 
-    net.stop()
+        class ToyHMI(HMI):
 
-@with_named_setup(setup_func, teardown_func)
-def test_Workshop():
-    """Ideal link double MITM"""
-    raise SkipTest
+            def main_loop(self):
 
-    topo = L3EthStarAttack()
-    net = Mininet(topo=topo, link=TCLink, listenPort=c.OF_MISC['switch_debug_port'])
-    net.start()
+                eq_(self.set(('SENSOR1',), '10'), '10')
+                eq_(self.get(('SENSOR1',)), '10')
+                eq_(self.get(('SENSOR2',)), '22.2')
+                eq_(self.get(('SENSOR3',)), '5')
+                time.sleep(sleep)
 
-    plc1, attacker, hmi = net.get('plc1', 'attacker', 'hmi')
-    plc2, plc3, plc4 = net.get('plc2', 'plc3', 'plc4')
+                try:
+                    self.get(2.22)
+                except TypeError as error:
+                    print 'get what is a float: ', error
 
-    logger.info("pre-arp poisoning phase (eg open wireshark)")
-    CLI(net)
+                try:
+                    self.set(2, 5)
+                except TypeError as error:
+                    print 'set what is an integer: ', error
 
-    # PASSIVE remote ARP poisoning
-    target_ip1 = plc1.IP()
-    target_ip2 = hmi.IP()
-    attacker_interface = 'attacker-eth0'
-    attacker_cmd = 'scripts/attacks/arp-mitm.sh %s %s %s &' % (
-            target_ip1,
-            target_ip2, 
-            attacker_interface)
-    attacker.cmd(attacker_cmd)
-    logger.info("attacker arp poisoned hmi and plc1")
+        hmi = ToyHMI(
+            name=TestHMI.NAME,
+            state=TestHMI.STATE,
+            protocol=TestHMI.PROTOCOL)
 
-    target_ip1 = plc3.IP()
-    target_ip2 = plc4.IP()
-    attacker_interface = 'plc2-eth0'
-    attacker_cmd = 'scripts/attacks/arp-mitm.sh %s %s %s &' % (
-            target_ip1,
-            target_ip2,
-            attacker_interface)
-    plc2.cmd(attacker_cmd)
-    logger.info("plc2 arp poisoned plc3 and plc4")
-
-    CLI(net)
-
-    net.stop()
+        SQLiteState._delete(TestHMI.PATH)

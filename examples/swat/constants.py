@@ -1,3 +1,4 @@
+# TODO: move to utils and move docstrings
 """
 SWaT constants
 
@@ -29,7 +30,7 @@ import os
 import os.path
 
 
-# PLC TAGS
+# PLC TAGS {{{1
 
 # UDT Bases
 class FIT_UDT(object):
@@ -82,21 +83,21 @@ class MV_UDT(object):
     """MV_UDT"""
 
     def __init__(self):
-        self.Cmd = [ '' for i in range(0,16) ]
-        self.Status = [ '' for i in range(0,16) ]
+        self.Cmd = ['' for i in range(0, 16)]
+        self.Status = ['' for i in range(0, 16)]
         self.Reset = '0'
         self.Auto = '0'
         self.FTO = '0'
         self.FTC = '0'
-        self.Avl= '0'
+        self.Avl = '0'
 
 
 class PMP_UDT(object):
     """PMP_UDT"""
 
     def __init__(self):
-        self.Cmd = [ '' for i in range(0,16) ]
-        self.Status = [ '' for i in range(0,16) ]
+        self.Cmd = ['' for i in range(0, 16)]
+        self.Status = ['' for i in range(0, 16)]
         self.RunMin = '0.0'
         self.Total_RunMin = '0.0'
         self.RunHr = '0.0'
@@ -105,33 +106,14 @@ class PMP_UDT(object):
         self.Auto = '0'
         self.Fault = '0'
         self.Avi = '0'
-        self.Permissive = [ '' for i in range(0,32) ]
-        self.Shutdown = [ '' for i in range(0,32) ]
-        self.SD = [ '' for i in range(0,32) ]
+        self.Permissive = ['' for i in range(0, 32)]
+        self.Shutdown = ['' for i in range(0, 32)]
+        self.SD = ['' for i in range(0, 32)]
         self.Reset = '0'
         self.Reset_RunHr = '0'
         self.FTR = '0'
         self.FTS = '0'
 
-
-# UDT Aliases
-
-    """Docstring for HMI_FIT101. """
-    def __init__(self):
-        """TODO: to be defined1. """
-
-
-# CPPPO
-
-PLC1_CPPPO_CACHE = "examples/swat/plc1_cpppo.cache"
-PLC2_CPPPO_CACHE = "examples/swat/plc2_cpppo.cache"
-PLC3_CPPPO_CACHE = "examples/swat/plc3_cpppo.cache"
-PLC4_CPPPO_CACHE = "examples/swat/plc4_cpppo.cache"
-PLC5_CPPPO_CACHE = "examples/swat/plc5_cpppo.cache"
-PLC6_CPPPO_CACHE = "examples/swat/plc6_cpppo.cache"
-
-# basic atomic types are: INT (16-bit), SINT (8-bit) DINT (32-bit) integer
-# and REAL (32-bit float)
 
 # TODO: use separate lists for cpppo and state_db
 P1_PLC1_TAGS = [
@@ -192,6 +174,7 @@ P1_PLC6_TAGS = [
     ('HMI_P601-Status' , 'INT'),
 ]
 
+
 def db2cpppo(record):
     """
     Convert from sqlite3 db record to cpppo tag string
@@ -217,7 +200,7 @@ def db2cpppo(record):
         if DATATYPE == 'BOOL':
             DATATYPE = 'INT'
 
-        cppo_str = NAME+'='+DATATYPE
+        cppo_str = NAME + '=' + DATATYPE
         logger.debug("db2cpppo: %s -> %s" % (record, cppo_str))
 
     return cppo_str
@@ -230,9 +213,9 @@ def init_cpppo_server(tags):
 
     """
 
-    cpppo_tags = tags[0][0]+'='+tags[0][1]
+    cpppo_tags = tags[0][0] + '=' + tags[0][1]
     for tag in tags[1:]:
-        cpppo_tags += ' '+tag[0]+'='+tag[1]
+        cpppo_tags += ' ' + tag[0] + '=' + tag[1]
 
     # DEBUG TAGS
     # cpppo_tags += ' P1=INT'
@@ -246,6 +229,7 @@ def init_cpppo_server(tags):
     rc = os.system(cmd)
     assert rc == 0, "init_cpppo_server"
 
+
 def write_cpppo(ip, tag_name, val):
     """Write cpppo
 
@@ -256,10 +240,11 @@ def write_cpppo(ip, tag_name, val):
     """
 
     # TODO: write multiple values
-    expr = tag_name+'='+val
+    expr = tag_name + '=' + val
     cmd = "python -m cpppo.server.enip.client --print -a %s %s" % (ip, expr)
     rc = os.system(cmd)
     assert rc == 0, "write_cpppo"
+
 
 def read_cpppo(ip, tag_name, cpppo_cache):
     """Read from a cpppo enip server store value in a temp cache and remove
@@ -276,9 +261,9 @@ def read_cpppo(ip, tag_name, cpppo_cache):
     # TODO: read multiple values
     # TODO: append with >>
     cmd = "python -m cpppo.server.enip.client --print -a %s %s > %s" % (
-            ip,
-            tag_name,
-            cpppo_cache)
+        ip,
+        tag_name,
+        cpppo_cache)
     rc = os.system(cmd)
     # assert rc == 0, "read_cpppo"
 
@@ -374,24 +359,22 @@ def wait_for_event_timeout(event, timeout, ename):
             return
         else:
             emsg = "%s not set after %s sec" % (
-                    ename, str(timeout))
+                ename, str(timeout))
             raise Exception(emsg)
 
 
-
-# LOGGING
+# LOGGING {{{1
 logging.basicConfig(
-        filename = os.path.join(
-            os.path.dirname(__file__),
-            os.path.pardir, os.path.pardir, 'logs', 'swat.log'),
-        level=logging.DEBUG,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        # format='%(asctime)s (%(threadName)s) %(levelname)s: %(message)s')
+    filename=os.path.join(
+        os.path.dirname(__file__),
+        os.path.pardir, os.path.pardir, 'logs', 'swat.log'),
+    level=logging.DEBUG,
+    # format='%(asctime)s (%(threadName)s) %(levelname)s: %(message)s')
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('swat')
 
 
-
-# DB
+# DB {{{1
 STATE_DB_PATH = os.path.join(os.path.dirname(__file__), 'state.db')
 
 # currently no PLC dbs
@@ -415,43 +398,22 @@ SCHEMA = """
             PRIMARY KEY (SCOPE, NAME, PID)
         );
         """ % TABLE
-        # VALUE             text default '',
+# VALUE             text default '',
 
 # state_db specific filters, functions and aggregators
 # TODO: add UDT
 DATATYPES = [
-        'INT',
-        'DINT',
-        'BOOL',
-        'REAL',
+    'INT',
+    'DINT',
+    'BOOL',
+    'REAL',
 
-        'FIT_UDT',
-        'AIN_UDT',  # eg: LIT
-        'MV_UDT',
-        'PMP_UDT',
+    'FIT_UDT',
+    'AIN_UDT',  # eg: LIT
+    'MV_UDT',
+    'PMP_UDT',
 ]
 
-
-def create_db(db_path, schema):
-    """
-    create a sqlite db given a schema.
-
-    :db_path: full or relative path to the file.db
-    :schema: str containing the schema
-    """
-    with sqlite3.connect(db_path) as conn:
-        conn.executescript(schema)
-        logger.info('Created schema')
-
-def remove_db(db_path):
-    """
-    remove sqlite db (that is a file).
-    """
-    logger.info('Removing %s' % db_path)
-    try:
-        os.remove(db_path)
-    except Exception, err:
-        logger.warning(err)
 
 def init_db(db_path, datatypes):
     """
@@ -482,7 +444,8 @@ def init_db(db_path, datatypes):
             logger.info('Init tables')
 
             for i in range(1, 7):
-                plc_filename = os.path.join(os.path.dirname(__file__), "real-tags", "P%d-Tags.CSV" % i)
+                plc_filename = os.path.join(
+                    os.path.dirname(__file__), "real-tags", "P%d-Tags.CSV" % i)
                 with open(plc_filename, "rt") as f:
 
                     text = f.read()
@@ -612,6 +575,7 @@ def read_single_statedb(PID, NAME, SCOPE='TODO'):
         except sqlite3.Error, e:
             logger.warning('Error %s:' % e.args[0])
 
+
 def update_statedb(VALUE, NAME, PID=None, SCOPE='TODO'):
     """Update Tag table
 
@@ -641,6 +605,7 @@ def update_statedb(VALUE, NAME, PID=None, SCOPE='TODO'):
             conn.commit()
         except sqlite3.Error, e:
             logger.warning('Error %s:' % e.args[0])
+
 
 def select_value(record):
     # logger.debug(record)
@@ -853,3 +818,6 @@ CIP_SERIAL_NUMBERS = {
     'plc5r': 'TODO',
     'plc6r': 'TODO',
 }
+=======
+
+>>>>>>> origin/master

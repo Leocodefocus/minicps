@@ -1,233 +1,332 @@
 """
-Mininet
+devices.py
 
-Vertex is the base device class, its subclasses represent a particular network
-device.
+This module contains:
+    - the bindings to the physical layer API
+    - the bindings to the network API (mininet)
+    - the user input validation code
 
-By default Mininet runs Open vSwitch in OpenFlow mode,
-which requires an OpenFlow controller.
+Any device can be initialized with any couple of (state, protocol)
+dictionaries. The consistency of the system should be guaranteed by the
+client, e.g., do NOT init two different PLCs referencing to two different
+states or speaking two different protocols.
 
-
-POX
-
-Minicps assumes that pox is cloned into your $HOME dir,
-for more information visit:
-https://openflow.stanford.edu/display/ONL/POX+Wiki
-
-Controller subclasses are started and stopped automatically by Mininet.
-RemoteController must be started and stopped by the user.
-
-Controller that enables learning switches doesn't work natively on
-topologies that contains loops and multiple paths (eg: fat trees)
-but they work fine with spanning tree topologies.
+Device subclasses can be customized overriding the _start and _stop methods.
 """
 
-from mininet.net import Mininet
-from mininet.node import Controller, Host, Node
-from mininet.topo import SingleSwitchTopo
+import time
 
-from minicps import constants as c
-
-import os
-import sys
-
-from minicps.constants import _buildLogger, _pox_opts
-import logging
-logger = _buildLogger(__name__, c.LOG_BYTES, c.LOG_ROTATIONS)
+from os.path import splitext
+from minicps.state import SQLiteState, RedisState
+from minicps.protocols import EnipProtocol
 
 
-# NetworkX: use Edge and Vertex to avoid conflicts with mininet terminology
-class Vertex(object):
+class Device(object):
 
-    """
-    Base networkx -> mininet host object
+    """Base class."""
 
-    """
+    # TODO: state dict convention (eg: multiple table support?)
+    def __init__(self, name, protocol, state, disk={}, memory={}):
+        """PLC1 initialization steps:
 
-    # TODO: finish doc
-    def __init__(self, label, ip='', netmask='', mac='', cpu_alloc=0.0):
+        :name: name
+        :protocol: used for network emulation
+        :state: dict containing 'path' and 'name'
+        :disk: persistent memory
+        :memory: main memory
         """
 
-        :label: node unique id used also as mininet hostname
-        :ip: ipv4
-        :mac: ethernet address
-        :netmask: CIDR notation eg: /24
-        :cpu_alloc: floating point percentage of CPU allocation
+        self._validate_inputs(name, protocol, state, disk, memory)
 
+        self.name = name
+        self.state = state
+        self.protocol = protocol
+        self.memory = memory
+        self.disk = disk
+
+        self._init_state()
+        self._init_protocol()
+        self._start()
+        self._stop()
+
+    def _validate_inputs(self, name, protocol, state, disk, memory):
+
+        # name string
+        if type(name) is not str:
+            raise TypeError('Name must be a string.')
+        elif not name:
+            raise ValueError('Name string cannot be empty.')
+
+        # state dict
+        if type(state) is not dict:
+            raise TypeError('State must be a dict.')
+        else:
+            state_keys = state.keys()
+            if (not state_keys) or (len(state_keys) != 2):
+                raise KeyError('State must contain 2 keys.')
+            else:
+                for key in state_keys:
+                    if (key != 'path') and (key != 'name'):
+                        raise KeyError('%s is an invalid key.' % key)
+            state_values = state.values()
+            for val in state_values:
+                if type(val) is not str:
+                    raise TypeError('state values must be strings.')
+            # state['path']
+            subpath, extension = splitext(state['path'])
+            # print 'DEBUG subpath: ', subpath
+            # print 'DEBUG extension: ', extension
+            if (extension != '.redis') and (extension != '.sqlite'):
+                raise ValueError('%s extension not supported.' % extension)
+            # state['name']
+            if type(state['name']) is not str:
+                raise TypeError('State name must be a string.')
+
+        # protocol
+        if type(protocol) is not dict:
+            if protocol is not None:
+                raise TypeError('Protocol must be either None or a dict.')
+        else:
+            protocol_keys = protocol.keys()
+            if (not protocol_keys) or (len(protocol_keys) != 3):
+                raise KeyError('Protocol must contain 3 keys.')
+            else:
+                for key in protocol_keys:
+                    if ((key != 'name') and
+                            (key != 'mode') and
+                            (key != 'server')):
+                        raise KeyError('%s is an invalid key.' % key)
+
+            # protocol['name']
+            if type(protocol['name']) is not str:
+                raise TypeError('Protocol name must be a string.')
+            else:
+                name = protocol['name']
+                if (name != 'enip'):
+                    raise ValueError('%s protocol not supported.' % protocol)
+            # protocol['mode']
+            if type(protocol['mode']) is not int:
+                raise TypeError('Protocol mode must be a int.')
+            else:
+                mode = protocol['mode']
+                if (mode < 0):
+                    raise ValueError('Protocol mode must be positive.')
+            # protocol['server'] TODO
+            # protocol['client'] TODO after adding it to the API
+
+    def _init_state(self):
+        """Bind device to the physical layer API."""
+
+        subpath, extension = splitext(self.state['path'])
+
+        if extension == '.sqlite':
+            # TODO: add parametric value filed
+            # print 'DEBUG state: ', self.state
+            self._state = SQLiteState(self.state)
+        elif extension == '.redis':
+            # TODO: add parametric key serialization
+            self._state = RedisState(self.state)
+        else:
+            print 'ERROR: %s backend not supported.' % self.state
+
+    def _init_protocol(self):
+        """Bind device to network API."""
+
+        if self.protocol is None:
+            print 'DEBUG: %s has no networking capabilities.' % self.name
+            pass
+        else:
+            name = self.protocol['name']
+            if name == 'enip':
+                self._protocol = EnipProtocol(self.protocol)
+            else:
+                print 'ERROR: %s protocol not supported.' % self.protocol
+
+    def _start(self):
+        """Start a device."""
+
+        print "TODO _start: please override me"
+
+    def _stop(self):
+        """Start a device."""
+
+        print "TODO _stop: please override me"
+
+    def set(self, what, value):
+        """Set (write) a state value.
+
+        :what: tuple with field identifiers
+        :value: value
+
+        :returns: setted value
         """
-        self.label = label
-        self.ip = ip
-        self.netmask = netmask
-        self.mac = mac
-        self.cpu_alloc = cpu_alloc  # TODO: take a look first in mininet
 
-    def get_params(self):
-        """Wrapper around __dict__"""
+        if type(what) is not tuple:
+            raise TypeError('Parameter must be a tuple.')
+        else:
+            return self._state._set(what, value)
 
-        return self.__dict__
+    def get(self, what):
+        """Get (read) a state value.
 
+        :what: (Immutable) tuple with field identifiers
 
-class PLC(Vertex):
-
-    """PLC"""
-
-    # FIXME: delegate plc logic code to mininet?
-
-
-class Attacker(Vertex):
-
-    """Attacker"""
-
-    def ettercap_mitm_pap(self, target_ip1, target_ip2, attacker_interface):
+        :returns: get value
         """
-        Mount a ettercap Man in the Middle passive ARP poisoning attack
 
-        :target_ip1: TODO
-        :target_ip2: TODO
-        :attacker_interface: TODO
+        if type(what) is not tuple:
+            raise TypeError('Parameter must be a tuple.')
+        else:
+            return self._state._get(what)
 
+    def send(self, what, value, address):
+        """Send (serve) a value.
+
+        :what: tuple addressing what
+        :value: sent
+        :address: ip[:port]
         """
-        pass
-        # FIXME: delegate attack to mininet code?
+
+        if type(what) is not tuple:
+            raise TypeError('Parameter must be a tuple.')
+        else:
+            return self._protocol._send(what, value, address)
+
+    def recieve(self, what, address):
+        """Receive a (requested) value.
+
+        :what: to ask for
+        :address: to receive from
+        """
+
+        if type(what) is not tuple:
+            raise TypeError('Parameter must be a tuple.')
+        else:
+            return self._protocol._receive(what, address)
 
 
-class DumbSwitch(Vertex):
+# TODO: rename pre_loop and main_loop?
+class PLC(Device):
 
+    """Programmable Logic Controller.
+
+    PLC has control, monitor and network capabilities.
+
+    Usually they run a pre-loop initialization routine and then they enter a
+    main loop.
     """
-    is_switch bool is used to discriminate btw mininet switch requiring
-    addSwitch methoo and normal hosts requiring addHost method.
+
+    def _start(self):
+
+        self.pre_loop()
+        self.main_loop()
+
+    def _stop(self):
+
+        if self.protocol['mode'] > 0:
+            self._protocol._server_subprocess.kill()
+
+    def pre_loop(self, sleep=0.5):
+        """PLC boot process.
+
+        :sleep: sleep n sec after it
+        """
+
+        print "TODO PLC pre_loop: please override me"
+        time.sleep(sleep)
+
+    def main_loop(self, sleep=0.5):
+        """PLC main loop.
+
+        :sleep: sleep n sec after each iteration
+        """
+
+        sec = 0
+        while(sec < 1):
+
+            print "TODO PLC main_loop: please override me"
+            time.sleep(sleep)
+
+            sec += 1
+
+
+# TODO: add show something
+class HMI(Device):
+
+    """Human Machine Interface.
+
+    HMI has monitor and network capabilities.
     """
 
-    def __init__(self, label, ip='', netmask='', mac='', cpu_alloc=0.0):
-        Vertex.__init__(self, label, ip='', netmask='', mac='', cpu_alloc=0.0)
+    def _start(self):
 
-        self.is_switch = True  # used to discriminate btw node types
+        self.main_loop()
 
-    def get_params(self):
-        """Wrapper around __dict__"""
+    def _stop(self):
 
-        return self.__dict__
+        if self.protocol['mode'] > 0:
+            self._protocol._server_subprocess.kill()
 
+    def main_loop(self, sleep=0.5):
+        """HMI main loop.
 
-class HMI(Vertex):
+        :sleep: sleep n sec after each iteration
+        """
 
-    """HMI"""
-    #TODO: add logic
+        sec = 0
+        while(sec < 1):
 
-        
-class Workstn(Vertex):
+            print "TODO HMI main_loop: please override me"
+            time.sleep(sleep)
 
-    """Workstn"""
-
-
-class Histn(Vertex):
-
-    """Histn"""
-        
-        
-class DumbRouter(Vertex):
-
-    """Docstring for DumbRouter. """
+            sec += 1
 
 
-class Firewall(Vertex):
+class Tank(Device):
 
-    """Docstring for Firewall. """
+    """Tank.
 
+    Tank has:
+        - state capabilities
+        - no memory
+        - no disk
+        - no networking capabilities
+    """
 
-class SCADA(Vertex):
+    def __init__(
+            self, name, protocol, state,
+            section, level):
+        """
+        :section: cross section of the tank in m^2
+        :level: current level in m
 
-    """Docstring for SCADA. """
+        Eg: inflows = [[True, 2.5], [False, 3.3]]
+        """
 
+        self.section = section
+        self.level = level
+        super(Tank, self).__init__(name, protocol, state)
 
-class Historian(Vertex):
+    def _start(self):
 
-    """Docstring for Historian. """
+        self.pre_loop()
+        self.main_loop()
 
+    def pre_loop(self, sleep=0.5):
+        """Tank pre_loop."""
 
-class AccessPoint(Vertex):
+        print "TODO Tank pre_loop: please override me"
 
-    """Docstring for AccessPoint. """
+    def main_loop(self, sleep=0.5):
+        """Tank main loop.
 
+        :sleep: sleep n sec after each iteration
+        """
 
+        sec = 0
+        while(sec < 1):
 
-# Mininet
-class POXL2Pairs(Controller):
+            print "TODO Tank main_loop: please override me"
+            time.sleep(sleep)
 
-    """Build a controller able to update switches
-    flow tables according to MAC learning."""
-
-    def start(self):
-        logger.info('Inside %s' % type(self).__name__)
-        self.pox = '%s/pox/pox.py' % (c.POX_PATH)
-        pox_opts = _pox_opts('forwarding.l2_pairs', 'DEBUG', 'logs/'+type(self).__name__+'.log,w')
-        self.cmd(self.pox, pox_opts)
-
-    def stop(self):
-        logger.info('Leaving %s' % type(self).__name__)
-        self.cmd('kill %' + self.pox)
-
-
-class POXL2Learning(Controller):
-
-    """Build a controller able to update switches
-    flow tables according to flow-based criteria
-    (not only MAC-based flow matching)."""
-
-    def start(self):
-        logger.info('Inside %s' % type(self).__name__)
-        self.pox = '%s/pox/pox.py' % (c.POX_PATH)
-        pox_opts = _pox_opts('forwarding.l2_learning', 'DEBUG', 'logs/'+type(self).__name__+'.log,w')
-        self.cmd(self.pox, pox_opts)
-
-    def stop(self):
-        logger.info('Leaving %s' % type(self).__name__)
-        self.cmd('kill %' + self.pox)
-
-
-class POXProva(Controller):
-
-    """Use it to test components using POX_PATH."""
-
-    def start(self):
-        POX_PATH='hub'  # pox/ext/ dir
-
-        logger.info('Inside %s' % type(self).__name__)
-        self.pox = '%s/pox/pox.py' % (c.POX_PATH)
-        pox_opts = _pox_opts(POX_PATH, 'DEBUG', 'logs/'+type(self).__name__+'.log,w')
-        self.cmd(self.pox, pox_opts)
-        # self.cmd(self.pox, 'forwarding.prova log.level --DEBUG log --file=./logs/pox.log &')
-
-    def stop(self):
-        logger.info('Leaving %s' % type(self).__name__)
-        self.cmd('kill %' + self.pox)
-
-
-class POXSwat(Controller):
-
-    """Build a controller based on temp/antiarppoison.py"""
-
-    def start(self):
-        logger.info('Inside %s' % type(self).__name__)
-        self.pox = '%s/pox/pox.py' % (c.POX_PATH)
-        pox_opts = _pox_opts('swat_controller', 'DEBUG', 'logs/'+type(self).__name__+'.log,w')
-        self.cmd(self.pox, pox_opts)
-
-    def stop(self):
-        logger.info('Leaving %s' % type(self).__name__)
-        self.cmd('kill %' + self.pox)
-
-
-class POXAntiArpPoison(Controller):
-
-    """Build a controller based on temp/antiarppoison.py"""
-
-    def start(self):
-        logger.info('Inside %s' % type(self).__name__)
-        self.pox = '%s/pox/pox.py' % (c.POX_PATH)
-        pox_opts = _pox_opts('antiarppoison', 'DEBUG', 'logs/'+type(self).__name__+'.log,w')
-        self.cmd(self.pox, pox_opts)
-
-    def stop(self):
-        logger.info('Leaving %s' % type(self).__name__)
-        self.cmd('kill %' + self.pox)
+            sec += 1

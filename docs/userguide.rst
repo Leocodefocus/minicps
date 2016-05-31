@@ -1,39 +1,51 @@
-.. userguide_
+.. USERGUIDE {{{1
+.. _userguide:
 
 **********
 User Guide
 **********
 
+.. INTRODUCTION {{{2
 
+============
 Introduction
 ============
 
 MiniCPS is a lightweight simulator for accurate network traffic in an
 industrial control system, with basic support for physical layer interaction.
 
-This page summarizes the basic installation, configuration and testing of MiniCPS. We provide a tutorial for beginners here: :ref:`swat-tutorial`. If you need more information about a specific topic see :ref:`add-res`.
+This page summarizes the basic installation, configuration and testing of
+MiniCPS. We provide a tutorial for beginners here: :ref:`swat-tutorial`. If
+you need more information about a specific topic see :ref:`misc`.
 
 
+.. INSTALLATION {{{2
+
+============
 Installation
 ============
+
+.. REQUIREMENTS {{{3
 
 Requirements
 ------------
 
-You need to start MiniCPS installation by `installing <http://mininet.org/download/>`_ Mininet and its dependencies.
+You need to start MiniCPS installation by `installing
+<http://mininet.org/download/>`_ Mininet and its dependencies.
 
 Notice that Mininet can be installed either inside a Virtual Machine (VM)
 or on your physical machine.
 The official Mininet VM comes without an X-server that is an *optional*
-requirements for MiniCPS (e.g.: it can be used to display a pop-up window
+requirements for MiniCPS (e.g., it can be used to display a pop-up window
 with sensor data visualization).
 
-The :ref:`install-minicps` section provides instructions to install ``minicps``
+The `Install MiniCPS`_ section provides instructions to install ``minicps``
 on a machine that is running the **latest official mininet VM (Ubuntu)**. Please
-refer to your distribution documentation if you need to install mininet and
-MiniCPS on other distros.
+refer to your distribution documentation if you need to install Mininet on 
+other Linux distributions.
 
-.. _install-minicps:
+
+.. INSTALL MINICPS {{{3
 
 Install MiniCPS
 ---------------
@@ -62,17 +74,20 @@ MiniCPS is compatible with *python 2.7.X*. Install dependencies using:
 
 .. code-block:: console
 
-   sudo apt-get install python-pip python-matplotlib
-   sudo apt-get install python-networkx python-pil.imagetk
-   sudo pip install nose nose-cov
+   sudo apt-get install python-matplotlib python-networkx python-pil.imagetk
 
-For ENIP support install ``cpppo``
+.. TODO: remove sudo and add pip -U?
+For *Ethernet/IP* support install ``cpppo``
 
 .. code-block:: console
 
    sudo pip install cpppo
 
-For SDN support optionally install ``pox`` (``mininet`` already includes it):
+.. TODO: add modbus maybe reorganize the deps
+
+For *SDN controller development* there are many options,
+``pox`` is a good starting point and Mininet's VM already includes it. If you
+want to manually install it type:
 
 .. code-block:: console
 
@@ -85,13 +100,38 @@ execute the following:
 
 .. code-block:: console
 
-   ~/minicps/bin/init [-p POX_PATH -m MINICPS_PATH -vv]
+   ~/minicps/bin/pox-init.py [-p POX_PATH -m MINICPS_PATH -vv]
 
 Notice that: 
 
 * You can increase the verbosity level using either ``v`` or  ``-vv``
 * ``POX_PATH`` defaults to ``~/pox`` and ``MINICPS_PATH`` defaults to
   ``~/minicps``, indeed ``~/minicps/bin/init`` should work for you.
+
+.. INSTALL OPTIONAL {{{3
+.. _install-optional:
+
+Install optional dependencies
+--------------------------------
+
+For *testing* support install dependencies using:
+
+.. code-block:: console
+
+   sudo apt-get install python-pip python-nose python-coverage
+   sudo pip install nose-cov
+
+To generate the *documentation* from the source we use the ``sphinx`` tool.
+Please type:
+
+.. code-block:: console
+
+    sudo apt-get install python-sphinx libjs-mathjax
+    sudo pip install sphinx-rtd-theme
+
+
+
+.. TESTING INSTALLATION {{{3
 
 Testing installation
 ----------------------
@@ -103,17 +143,25 @@ Now you should be able to run:
     cd ~/minicps
     ./bin/swat-tutorial
 
-Which should start the command line with ``mininet>`` prompt. To directly continue with the tutorial, follow :ref:`swat-tutorial`.
+Which should start the command line with ``mininet>`` prompt. To directly
+continue with the tutorial, look at :ref:`swat-tutorial`.
 
+
+.. CONFIGURE MINICPS {{{2
 
 Configure MiniCPS
 ==================
+
+.. GENERAL {{{3
 
 General
 -----------------
 
 Every switch listens to ``6634`` debugging port.
 You can change it via ``OF_MISC`` dict in the ``minicps.constants``
+
+
+.. SSH {{{3
 
 ssh
 ---
@@ -124,9 +172,10 @@ Mininet VM comes with a ssh server starting at boot. Check it using:
 
    ps aux | grep ssh
 
-You should see a ``sshd -D`` running process.
+You should see a ``/usr/sbin/sshd -D`` running process.
 
-If you want to redirect X command to your host X-server ssh into mininet VM
+If you want to redirect X command to your host X-server ssh into mininet VM,
+e.g., to display graphs even if your VM doesn't run an X server,
 using the ``-Y`` option:
 
 .. code-block:: console
@@ -134,8 +183,10 @@ using the ``-Y`` option:
     ssh -Y mininet@minnetvm
 
 
-Disable ipv6 traffic
------------------------
+.. IPv6 {{{3
+
+IPv6
+----
 
 In order to reduce the network traffic you can **disable** the
 Linux ipv6 kernel module. (``mininet`` VM already disables it)
@@ -165,20 +216,16 @@ Then reboot your machine and check it with ``ifconfig`` that no
 Instruction taken from
 `here <https://github.com/mininet/mininet/issues/454>`_
 
-Documentation generation with Sphinx
--------------------
 
-To generate this documentation from the source we use the ``sphinx`` tool.
+.. OFFILNE DOCUMENTATION {{{3
 
-First install:
+Offline Documentation
+---------------------
 
-.. code-block:: console
-
-    sudo apt-get install python-sphinx libjs-mathjax
-    sudo pip install sphinx-rtd-theme
+First install packages listed in `Install optional dependencies`_.
 
 Then open ``docs/Makefile`` and check that ``SPHINXBUILD`` reference to
-``sphinx-build`` command. (e.g. Arch Linux users can use ``sphinx-build2``)
+``sphinx-build`` command. (e.g., Arch Linux users can use ``sphinx-build2``)
 
 Then to build the doc in ``html`` format type:
 
@@ -187,16 +234,19 @@ Then to build the doc in ``html`` format type:
     cd docs
     make html
 
-Then to navigate a static version through a browser (e.g. ``firefox``) type:
+Then to navigate a static version through a browser (e.g., ``firefox``) type:
 
 .. code-block:: console
 
     firefox _build/html/index.html
 
-.. _logging:
+
+.. LOGGING AND TESTING {{{2
 
 Logging and Testing
 ====================
+
+.. LOGGING {{{3
 
 Logging
 ---------
@@ -214,8 +264,11 @@ The swat tutorial produces a ``swat.log`` file. Each time you run a new swat
 simulation the logger will append messages to that file. Please control
 ``swat.log``'s size and manage it manually.  
 
-Nose Testing and Coverage
---------------------------
+
+.. TESTING {{{3
+
+Testing
+-------
 
 You can intentionally skip a particular test adding/uncommenting ``raise SkipTest``.
 You can see skipped test summary in the nosetests output.
